@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# preflight — iOS release-readiness preflight check
+#
+# Subcommands:
+#   preflight                 → terminal'de tarama (default)
+#   preflight scan [args]     → terminal'de tarama (explicit)
+#   preflight dashboard       → web dashboard (lokal HTTP)
+#   preflight doctor          → bağımlılık check
+#   preflight --version       → versiyon
+#   preflight --help          → yardım
+
+set -o pipefail
+
+VERSION="0.1.0"
+
+# Script konumundan libexec'i bul. Brew install: bin/preflight → libexec/
+# Dev mode: bin/preflight → ../lib/
+SELF="${BASH_SOURCE[0]}"
+while [[ -L "$SELF" ]]; do
+    LINK="$(readlink "$SELF")"
+    [[ "$LINK" = /* ]] && SELF="$LINK" || SELF="$(dirname "$SELF")/$LINK"
+done
+BIN_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+
+if [[ -d "$BIN_DIR/../libexec" && -f "$BIN_DIR/../libexec/preflight-scan.sh" ]]; then
+    LIBEXEC="$BIN_DIR/../libexec"
+elif [[ -d "$BIN_DIR/../lib" && -f "$BIN_DIR/../lib/preflight-scan.sh" ]]; then
+    LIBEXEC="$BIN_DIR/../lib"
+else
+    echo "preflight: bağımlı dosyalar bulunamadı (lib/ veya libexec/)." >&2
+    echo "BIN_DIR=$BIN_DIR" >&2
+    exit 1
+fi
+
+LIBEXEC="$(cd "$LIBEXEC" && pwd)"
+
+# ─── Caller'ın CWD'si repo kökü olur ──────────────────────────────────────
+# (Subcommand'lar PREFLIGHT_REPO_ROOT env var'ı ile inherit eder.)
+export PREFLIGHT_REPO_ROOT="$PWD"
+
+usage() {
+    cat <<EOF
+preflight $VERSION — iOS release-readiness preflight check
+
+USAGE:
+    preflight [SUBCOMMAND] [OPTIONS]
+
+SUBCOMMANDS:
+    scan        Terminal'de tarama (default)
+    dashboard   Web dashboard'u başlat (lokal HTTP, http://localhost:7474)
+    doctor      Bağımlılık check (python3, ripgrep, xcode)
+
+OPTIONS (scan):
+    --strict             WARN'lar da fail döner (CI için)
+    --report FILE        Markdown rapor üret
+    --json FILE          JSON çıktı üret
+    --only RULES         Sadece bu kuralları çalıştır (virgülle ayır)
+    --skip RULES         Bu kuralları atla
+    --src DIR            Kaynak klasör override
+    --target NAME        Xcode target (introspection için)
+    --config NAME        Build configuration (introspection için)
+
+EXAMPLES:
+    cd ~/projects/MyApp
+    preflight                          # Terminal scan
+    preflight dashboard                # Browser UI
+    preflight scan --strict --json out.json
+
+EOF
+}
+
+doctor() {
+    local ok=1
+    printf "preflight $VERSION doctor\n\n"
+
+    if command -v python3 >/dev/null 2>&1; then
+        printf "  ✓ python3 (%s)\n" "$(python3 --version 2>&1)"
+    else
+        printf "  ✗ python3 yok — gerekli (macOS'ta xcode-select --install)\n"
+        ok=0
+    fi
+
+    if command -v rg >/dev/null 2>&1; then
+        printf "  ✓ ripgrep (%s)\n" "$(rg --version | head -1)"
+    else
+        printf "  ⚠ ripgrep yok — grep fallback kullanılacak (yavaş). Yüklemek için: brew install ripgrep\n"
+    fi
+
+    if command -v xcodebuild >/dev/null 2>&1; then
+        printf "  ✓ xcodebuild (%s)\n" "$(xcodebuild -version 2>&1 | head -1)"
+    else
+        printf "  ⚠ xcodebuild yok — target/config introspection devre dışı (Xcode kur veya CLT)\n"
+    fi
+
+    if command -v xed >/dev/null 2>&1; then
+        printf "  ✓ xed (Xcode'da satır aç)\n"
+    else
+        printf "  ⚠ xed yok — dashboard'da satıra tıklayınca açılmaz\n"
+    fi
+
+    printf "\nLibexec: %s\n" "$LIBEXEC"
+    printf "Repo  : %s\n" "$PREFLIGHT_REPO_ROOT"
+
+    if (( ok == 1 )); then
+        printf "\nHazır. \`preflight\` veya \`preflight dashboard\` ile koş.\n"
+        return 0
+    else
+        return 1
+    fi
+}
+
+case "${1:-scan}" in
+    -h|--help|help)
+        usage
+        ;;
+    -v|--version|version)
+        echo "preflight $VERSION"
+        ;;
+    doctor)
+        doctor
+        ;;
+    dashboard)
+        shift
+        if ! command -v python3 >/dev/null 2>&1; then
+            echo "preflight: python3 gerekli." >&2
+            exit 1
+        fi
+        PORT="${PREFLIGHT_PORT:-7474}"
+        URL="http://localhost:$PORT"
+        # Tarayıcıyı 1.5sn sonra aç (server hazır olsun)
+        (
+            sleep 1.5
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                open "$URL" 2>/dev/null
+            elif command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "$URL" 2>/dev/null
+            fi
+        ) &
+        exec python3 "$LIBEXEC/preflight-serve.py"
+        ;;
+    scan)
+        shift
+        exec bash "$LIBEXEC/preflight-scan.sh" "$@"
+        ;;
+    --*|"")
+        # Unknown flag or no subcommand → scan default
+        exec bash "$LIBEXEC/preflight-scan.sh" "$@"
+        ;;
+    *)
+        # Bilinmeyen subcommand → scan'e flag olarak geçir
+        exec bash "$LIBEXEC/preflight-scan.sh" "$@"
+        ;;
+esac

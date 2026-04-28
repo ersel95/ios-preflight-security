@@ -1,0 +1,17 @@
+# Runtime cache (kullanıcının iOS projesinde oluşur, bu repoda olmaması lazım)
+.preflight/
+.preflight-data.json
+.preflight-project.json
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc

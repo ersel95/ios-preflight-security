@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preflight Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel2: #1d222c;
+    --border: #262d3a;
+    --text: #e6e9ef;
+    --muted: #8a93a4;
+    --accent: #ffd400;
+    --err: #ff5c6c;
+    --warn: #ffae3b;
+    --info: #4aa8ff;
+    --pass: #45d68a;
+    --shadow: 0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6fa;
+      --panel: #ffffff;
+      --panel2: #f0f2f7;
+      --border: #dee2eb;
+      --text: #1a1d24;
+      --muted: #6b7280;
+      --shadow: 0 1px 0 rgba(0,0,0,.02), 0 8px 24px rgba(0,0,0,.06);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  }
+  code, pre, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    box-shadow: var(--shadow);
+  }
+  .topbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; letter-spacing: .2px;
+  }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(255,212,0,.15);
+  }
+  .verdict {
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; letter-spacing: .3px;
+    text-transform: uppercase;
+  }
+  .verdict.pass { background: rgba(69,214,138,.12); color: var(--pass); }
+  .verdict.warn { background: rgba(255,174,59,.12); color: var(--warn); }
+  .verdict.fail { background: rgba(255,92,108,.12); color: var(--err); }
+
+  .grow { flex: 1; }
+
+  button, .btn {
+    font: inherit; cursor: pointer;
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 12px; border-radius: 8px;
+    transition: background .15s, border-color .15s, transform .1s;
+  }
+  button:hover { background: #232a36; border-color: #2f3849; }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: var(--accent); color: #1a1500;
+    border-color: var(--accent); font-weight: 700;
+  }
+  button.primary:hover { background: #ffe04d; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button .spin {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid currentColor; border-right-color: transparent;
+    border-radius: 50%; vertical-align: -2px; margin-right: 6px;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 8px;
+    min-width: 86px; text-align: center;
+  }
+  .stat .n { font: 700 18px/1.1 inherit; }
+  .stat .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat.err .n { color: var(--err); }
+  .stat.warn .n { color: var(--warn); }
+  .stat.info .n { color: var(--info); }
+  .stat.pass .n { color: var(--pass); }
+
+  .meta {
+    color: var(--muted); font-size: 12px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .filterbar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 12px; align-items: center;
+  }
+  .filterbar input[type=search] {
+    flex: 1; min-width: 220px;
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font: inherit;
+  }
+  .filterbar input[type=search]:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 8px;
+    background: var(--panel2); border: 1px solid var(--border);
+    user-select: none; cursor: pointer; font-size: 12px;
+  }
+  .toggle.off { opacity: .45; }
+  .toggle .swatch {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .toggle.err .swatch { background: var(--err); }
+  .toggle.warn .swatch { background: var(--warn); }
+  .toggle.info .swatch { background: var(--info); }
+
+  main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .section.empty { opacity: .5; }
+  .section-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-head:hover { background: var(--panel2); }
+  .section-title { font-weight: 600; flex: 1; }
+  .badges { display: flex; gap: 6px; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    font-weight: 600;
+  }
+  .badge.err { background: rgba(255,92,108,.15); color: var(--err); }
+  .badge.warn { background: rgba(255,174,59,.15); color: var(--warn); }
+  .badge.info { background: rgba(74,168,255,.15); color: var(--info); }
+  .chev { color: var(--muted); transition: transform .2s; }
+  .section.open .chev { transform: rotate(90deg); }
+
+  .findings { display: none; border-top: 1px solid var(--border); }
+  .section.open .findings { display: block; }
+
+  .finding {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    gap: 12px; align-items: start;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .finding:first-child { border-top: none; }
+  .finding:hover { background: var(--panel2); }
+  .finding.opening { background: rgba(74,168,255,.1); }
+  .sev {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 700;
+    text-align: center;
+  }
+  .sev.ERR { background: rgba(255,92,108,.18); color: var(--err); }
+  .sev.WARN { background: rgba(255,174,59,.18); color: var(--warn); }
+  .sev.INFO { background: rgba(74,168,255,.18); color: var(--info); }
+  .msg {
+    word-break: break-word;
+    font-size: 13px;
+  }
+  .msg .rule {
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-right: 8px;
+  }
+  .loc {
+    color: var(--muted); font-size: 12px;
+    text-align: right; white-space: nowrap;
+  }
+  .loc .file { color: var(--text); opacity: .85; }
+  .loc .line { color: var(--accent); margin-left: 4px; }
+
+  .empty-state {
+    text-align: center; padding: 40px;
+    color: var(--muted);
+  }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 8px;
+    box-shadow: var(--shadow);
+    transform: translateY(20px); opacity: 0;
+    transition: all .25s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.err { border-color: var(--err); }
+
+  details summary { cursor: pointer; }
+
+  .selector {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 8px 4px 10px;
+    font-size: 12px;
+  }
+  .selector .label {
+    color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .4px;
+    font-size: 10px;
+  }
+  .selector select {
+    background: transparent; color: var(--text);
+    border: none; outline: none;
+    font: inherit; font-weight: 600;
+    padding: 4px 6px; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    padding-right: 18px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%238a93a4' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+  }
+  .selector select option {
+    background: var(--panel); color: var(--text);
+  }
+  .config-badge {
+    display: inline-flex; align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+  .config-badge.prod { background: rgba(255,92,108,.12); color: var(--err); }
+  .config-badge.test, .config-badge.debug { background: rgba(74,168,255,.12); color: var(--info); }
+  .config-badge.uat, .config-badge.staging { background: rgba(255,174,59,.12); color: var(--warn); }
+  .macro-chip {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--panel2);
+    color: var(--muted);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+
+  .group-tabs {
+    display: inline-flex; background: var(--panel2);
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden;
+  }
+  .group-tabs button {
+    border: none; border-radius: 0; background: transparent;
+    padding: 6px 12px; font-size: 12px;
+  }
+  .group-tabs button.active {
+    background: var(--accent); color: #1a1500; font-weight: 700;
+  }
+
+  /* About modal */
+  .about-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .about-link:hover { color: var(--accent); background: var(--panel2); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: none;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.show {
+    display: flex; align-items: center; justify-content: center;
+    animation: fade-in .15s ease-out;
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    width: min(960px, 92vw);
+    max-height: 86vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  .modal-head {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .modal-head h2 {
+    margin: 0; font-size: 18px; font-weight: 700;
+    flex: 1;
+  }
+  .modal-head .subtitle {
+    color: var(--muted); font-size: 12px;
+    margin-top: 2px; font-weight: 400;
+  }
+  .modal-close {
+    background: transparent; border: none;
+    color: var(--muted); font-size: 22px; line-height: 1;
+    cursor: pointer; padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .modal-close:hover { color: var(--text); background: var(--panel2); }
+
+  .modal-body {
+    padding: 8px 24px 24px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .cat {
+    margin-top: 22px;
+  }
+  .cat:first-child { margin-top: 8px; }
+  .cat-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--muted);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cat-title .cat-emoji { font-size: 16px; }
+  .cat.critical .cat-title { color: var(--err); }
+  .cat.security .cat-title { color: var(--warn); }
+
+  .rule-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .rule-card h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .rule-card h3 .id {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--panel2);
+    padding: 1px 7px; border-radius: 4px;
+    font-size: 12px; font-weight: 600;
+    color: var(--accent);
+  }
+  .rule-card h3 .sevs { display: inline-flex; gap: 4px; }
+  .rule-card .what,
+  .rule-card .why {
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 6px 0 0 0;
+    color: var(--text);
+  }
+  .rule-card .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .rule-card .why { color: var(--muted); }
+  .modal-footer {
+    padding: 14px 24px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 12px; align-items: center;
+    color: var(--muted); font-size: 12px;
+  }
+  .modal-footer a { color: var(--accent); text-decoration: none; }
+  .modal-footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <span id="brand-name">Preflight</span>
+      <span id="verdict" class="verdict">…</span>
+    </div>
+    <div class="grow"></div>
+    <div class="stats">
+      <div class="stat err"><div class="n" id="cnt-err">–</div><div class="l">Error</div></div>
+      <div class="stat warn"><div class="n" id="cnt-warn">–</div><div class="l">Warn</div></div>
+      <div class="stat info"><div class="n" id="cnt-info">–</div><div class="l">Info</div></div>
+    </div>
+    <span class="selector" id="target-selector" style="display:none">
+      <span class="label">Target</span>
+      <select id="target-select"></select>
+    </span>
+    <span class="selector" id="config-selector" style="display:none">
+      <span class="label">Config</span>
+      <select id="config-select"></select>
+    </span>
+    <button id="rerun" class="primary" title="Preflight'ı yeniden çalıştır (⌘R)">↻ Re-run</button>
+    <button id="quit" title="Sunucuyu kapat ve çık">✕ Çıkış</button>
+  </div>
+  <div class="meta">
+    <span id="meta-src">–</span>
+    <span id="meta-target"></span>
+    <span id="meta-time">–</span>
+    <span id="meta-strict"></span>
+    <a id="about-link" class="about-link" href="#">ⓘ Bu denetim ne kontrol ediyor?</a>
+  </div>
+  <div class="filterbar">
+    <input id="search" type="search" placeholder="Dosya, kural veya mesajda ara… (⌘F)">
+    <label class="toggle err" data-sev="ERR">
+      <input type="checkbox" hidden checked>
+      <span class="swatch"></span> Error
+    </label>
+    <label class="toggle warn" data-sev="WARN">
+      <input type="checkbox" hidden checked>
+      <span class="swatch"></span> Warn
+    </label>
+    <label class="toggle info" data-sev="INFO">
+      <input type="checkbox" hidden>
+      <span class="swatch"></span> Info
+    </label>
+    <div class="group-tabs">
+      <button data-group="section" class="active">Kurala göre</button>
+      <button data-group="severity">Severity'e göre</button>
+      <button data-group="file">Dosyaya göre</button>
+    </div>
+    <button id="expand-all">Tümünü aç</button>
+    <button id="collapse-all">Kapat</button>
+  </div>
+</header>
+
+<main id="content">
+  <div class="empty-state">Yükleniyor…</div>
+</main>
+
+<div id="about-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="about-title">
+  <div class="modal">
+    <div class="modal-head">
+      <div style="flex:1">
+        <h2 id="about-title">Preflight neyi kontrol ediyor?</h2>
+        <div class="subtitle">Live'a çıkmadan önce iOS projesinde 22 kural taranır. Aşağıda her kuralın <b>ne aradığı</b> ve <b>neden önemli olduğu</b> açıklanmıştır.</div>
+      </div>
+      <button class="modal-close" aria-label="Kapat" data-close>✕</button>
+    </div>
+    <div class="modal-body" id="about-body">
+      <!-- JS doldurur -->
+    </div>
+    <div class="modal-footer">
+      <span>⌨ <kbd>Esc</kbd> kapatır.</span>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const SEVERITIES = ["ERR", "WARN", "INFO"];
+let findingIdCounter = 0;
+
+// Kural kataloğu — her bir kural için "ne arar" ve "neden önemli".
+// Modal'da kullanılır.
+const RULE_CATALOG = [
+  {
+    title: "Submission Blocker — App Store Rejection Sebepleri",
+    emoji: "🚨",
+    cls: "critical",
+    summary: "Bu sorunlar varsa Apple build'i ya otomatik ya da manuel review'da reddeder. Bunlar olmadan submission yapma.",
+    rules: [
+      {
+        id: "privacy-manifest",
+        name: "Privacy Manifest",
+        sev: ["ERR"],
+        what: "PrivacyInfo.xcprivacy dosyasının repo'da var olduğunu ve UserDefaults / fileTimestamp / systemBootTime / diskSpace / activeKeyboard gibi 'Required Reason API' kullanımları için doğru tag'lerin işlendiğini kontrol eder.",
+        why: "Apple, Mayıs 2024'ten beri tüm iOS uygulamalarında bu manifest'i zorunlu kılıyor. Şubat 2025'ten beri 3rd-party SDK'lar için de gerekli. Eksikse submission App Store Connect'te yüklenirken otomatik reddedilir — review sürecine bile girmez."
+      },
+      {
+        id: "plist",
+        name: "Info.plist Usage Descriptions",
+        sev: ["ERR"],
+        what: "Kodun kullandığı her iOS API için (Camera, Photo, Location, FaceID, Microphone, ATT, Bluetooth, Motion, Calendar, Speech, AppleMusic) Info.plist'te Usage Description var mı, içi dolu mu?",
+        why: "Açıklama eksikse iOS runtime'da izin sorulduğu anda app crash eder. Apple review sırasında her izin için açıklamanın anlamlı olduğunu manuel kontrol eder. Boş veya generic açıklamalar Guideline 5.1.1 ihlali sayılır ve reddedilir."
+      },
+      {
+        id: "ats",
+        name: "App Transport Security",
+        sev: ["ERR"],
+        what: "Info.plist'te NSAllowsArbitraryLoads, NSAllowsArbitraryLoadsInWebContent veya NSExceptionAllowsInsecureHTTPLoads = true olup olmadığını kontrol eder.",
+        why: "ATS tamamen kapatılmış uygulamalar Apple tarafından özel bir gerekçe (Guideline 4.5.5) istenmeden geçirilmez. Bankacılık uygulamasında ATS'nin kapalı olması TLS bypass riski demektir; MITM saldırısına açık hale gelir."
+      },
+      {
+        id: "sdk",
+        name: "SDK & Xcode Versiyonu",
+        sev: ["ERR", "WARN"],
+        what: "iOS deployment target ve lokal Xcode kurulumunun versiyonunu kontrol eder.",
+        why: "Apple, Nisan 2026'dan itibaren tüm yeni submission'ları Xcode 16+ ve iOS 18 SDK ile build edilmiş olmasını zorunlu kıldı. Eski Xcode ile yüklenen build'ler App Store Connect'te otomatik reddedilir. Yapısal bir sorun olduğu için CI'ın bu kontrolü yapması kritik."
+      }
+    ]
+  },
+  {
+    title: "Güvenlik & Bankacılık (OWASP MASVS)",
+    emoji: "🔒",
+    cls: "security",
+    summary: "Banking uygulamalarında en sık karşılaşılan veri sızıntısı, hassas bilgi koruma ve TLS sertleştirme bulguları. OWASP MASVS L2 (defense-in-depth) seviyesi.",
+    rules: [
+      {
+        id: "pasteboard",
+        name: "Pasteboard'a Hassas Veri",
+        sev: ["ERR", "WARN"],
+        what: "UIPasteboard.general.setValue / setString çağrılarını yakalar. Eğer payload'da 'card', 'pin', 'cvv', 'password', 'iban', 'customerNumber', 'account' geçiyorsa ERR olarak işaretler.",
+        why: "iOS clipboard sistem genelinde paylaşılır — kullanıcı bir anlığına bile başka uygulamaya geçtiğinde, o uygulama hassas veriyi okuyabilir. Universal Clipboard ile yakındaki Mac'e bile yansır. Çözüm: kopyalamayı kaldır ya da setItems(_:options:) ile expirationDate vererek 60 sn TTL koy."
+      },
+      {
+        id: "sensitive-log",
+        name: "Hassas Log Argümanı",
+        sev: ["ERR"],
+        what: "print/NSLog/Logger/os_log/logger() fonksiyonlarına password, pin, cvv, cardNumber, otp, token, customerNumber, tckn parametre olarak geçirilen yerleri yakalar.",
+        why: "Log mesajları device console, Console.app, crash report'lar ve 3rd-party logger SDK'larında (Crashlytics, Sentry vb.) saklanır — bu yollarla şifre / kart no üçüncü taraflara sızar. PCI-DSS / GDPR ihlali. Çözüm: alanları logger'a vermeden önce maskele veya [REDACTED] ile değiştir."
+      },
+      {
+        id: "secrets",
+        name: "Hardcoded Secrets",
+        sev: ["WARN"],
+        what: "apiKey/password/token/secret = \"...\" şeklinde 16+ karakterli sabit değer atamalarını arar.",
+        why: "Kaynak kodda hardcoded API key veya token, IPA reverse-engineering ile dakikalar içinde çıkarılır. Backend secret'ları repo'da olmamalı; xcconfig + environment variable veya secret manager kullanılmalı."
+      },
+      {
+        id: "http",
+        name: "HTTP / Localhost / Private IP",
+        sev: ["ERR"],
+        what: "Kodda http://, localhost, 127.0.0.1, 192.168.x.x, 10.0.0.x referanslarını bulur.",
+        why: "TLS olmadan trafik açık akar; bankacılık için kabul edilemez. Localhost / private IP referansları development sırasında kalmış kod demek; prod'a ulaşırsa istek hiç gitmez veya yanlış endpoint'e gider."
+      },
+      {
+        id: "mock",
+        name: "Mock / Stub Prod Target'ında",
+        sev: ["WARN"],
+        what: "*Mock*.swift, *Stub*.swift, *Fake*.swift dosyaları Prod target'a dahil mi (Xcode 16 synchronized folder'da otomatik dahildir) ve #if !PROD ile sarılı mı?",
+        why: "Mock data prod build'e karışırsa: (a) gerçek backend yerine sahte yanıtlar dönebilir (bug); (b) IPA boyutu şişer; (c) reverse engineer için kod akışını anlamayı kolaylaştırır. Build target'tan çıkarılmalı veya #if !PROD bloğuna alınmalı."
+      },
+      {
+        id: "env",
+        name: "Test/UAT/Dev URL Sızıntısı",
+        sev: ["WARN"],
+        what: "Kodda hardcoded \".test.\", \".uat.\", \"-tst-\", \"-uat-\", \"staging.\" gibi non-prod environment string'leri arar (xcconfig dosyaları hariç).",
+        why: "URL'ler kodun içine sabitlendiğinde, environment switching xcconfig sistemi devre dışı kalır — prod build yanlış endpoint'e istek atar. Tüm environment değerleri xcconfig'den enjekte edilmeli, kodda asla sabitlenmemeli."
+      }
+    ]
+  },
+  {
+    title: "Crash & Stability",
+    emoji: "💥",
+    cls: "",
+    summary: "Production'da crash yapan veya bellek sızıntısı oluşturan klasik Swift/iOS pattern'ları. App Store \"Apps that crash on launch\" Guideline 2.1 ihlali en sık rejection sebebi.",
+    rules: [
+      {
+        id: "unsafe",
+        name: "Güvenli Olmayan İfadeler",
+        sev: ["WARN"],
+        what: "try!, fatalError(...), as! force-cast kullanımlarını listeler. Hepsi runtime'da exception/crash potansiyeli taşır.",
+        why: "try! optional handling'i bypass'lar — beklenmedik bir error gelince app crash. fatalError() release'de de çalışır, 'imkansız' state'lerde bile kullanıcıya kötü deneyim. as! tip uyumsuzluğunda Bad Access fırlatır. Çözüm: do/catch, try?, as?, guard let ile güvenli handle."
+      },
+      {
+        id: "weak-self",
+        name: "Closure'da [weak self] Eksikliği",
+        sev: ["WARN"],
+        what: "Task { ... }, .sink { ... }, .receive { ... }, .map / .flatMap { ... } closure'larında self. kullanımı varsa [weak self] capture list'i var mı kontrol eder.",
+        why: "Strong self capture uzun ömürlü closure'larda (Combine subscription, async Task, network completion) retain cycle veya gereksiz nesne ömür uzaması yaratır. View deallocate olmaz, ViewModel sızar, RAM birikir. Klasik Swift hatası."
+      },
+      {
+        id: "weak-delegate",
+        name: "Delegate / DataSource weak Değil",
+        sev: ["WARN"],
+        what: "var delegate: ... veya var dataSource: ... declaration'larında weak modifier yoksa flag'ler.",
+        why: "Delegate pattern'ında child → parent referans strong ise klasik retain cycle oluşur (parent çocuğu, çocuk parent'ı tutar — ikisi de hiç deallocate olmaz). Apple SDK'sındaki tüm delegate property'leri weak; custom delegate'lerin de aynı kuralı izlemesi gerek."
+      }
+    ]
+  },
+  {
+    title: "Kod Hijyeni",
+    emoji: "🧹",
+    cls: "",
+    summary: "Production'a sızmaması gereken geçici / debug kod kalıntıları.",
+    rules: [
+      {
+        id: "print",
+        name: "Console Log Sızıntısı",
+        sev: ["ERR"],
+        what: "print, NSLog, debugPrint, dump çağrılarını yakalar. #if !PROD / #if DEBUG / #if !RELEASE bloğu içindekiler istisna.",
+        why: "Wrap edilmemiş log'lar release build'de de çalışır: (a) hassas state'i Console.app'te yansıtır; (b) IPA performansını yavaşlatır; (c) reverse engineering için iç akışı ifşa eder. Tüm debug log'ları conditional compilation içine alınmalı."
+      },
+      {
+        id: "todo",
+        name: "TODO / FIXME / HACK / XXX",
+        sev: ["WARN"],
+        what: "// TODO, // FIXME, // HACK, // XXX yorumlarını listeler.",
+        why: "Tamamlanmamış işler kod review'da kaybolur. Live öncesi her TODO bilinçli bir karar olmalı: (a) yapıldı mı?, (b) bu sürümde fine mi?, (c) ticket'a düşüldü mü? Aksi halde 'son dakika unutuldu' bug'ları doğar."
+      },
+      {
+        id: "commented",
+        name: "Yorum Satırına Alınmış Kod",
+        sev: ["WARN"],
+        what: "Aynı dosyada 3+ satır // let, // func, // if gibi yorumlanmış kod blokları arar.",
+        why: "Yorum satırına alınan kod git history'ye sahibiz, repo'da tutmaya gerek yok. Çürümeye başlar (etrafındaki API değişir, derlemez), kafa karıştırır, dosya boyutunu şişirir. Silmek doğrudur."
+      },
+      {
+        id: "lint",
+        name: "SwiftLint Disable",
+        sev: ["INFO"],
+        what: "// swiftlint:disable bildirimlerini listeler.",
+        why: "Bilinçli disable'lar olabilir ama bazıları geçici çözüm olarak kalmıştır. Live öncesi her birinin gerekçesi gözden geçirilmelidir."
+      }
+    ]
+  },
+  {
+    title: "Modern iOS & UX",
+    emoji: "🎨",
+    cls: "",
+    summary: "Görsel hatalar, deprecated API kullanımı, eksik lokalizasyon — kullanıcının doğrudan yaşadığı sorunlar.",
+    rules: [
+      {
+        id: "deprecated",
+        name: "Deprecated iOS API'ları",
+        sev: ["WARN"],
+        what: "UIScreen.main, UIApplication.shared.windows / keyWindow / statusBarOrientation, NavigationLink(destination:) (iOS 16+) gibi deprecated API kullanımlarını yakalar.",
+        why: "Multi-window iPad/visionOS desteği için bu API'lar deprecated. Yakın gelecekte tamamen kaldırılırsa app derlenmez. Şimdiden modernize etmek (UIWindowScene, NavigationStack) build sürdürülebilirliğini ve iPad UX'ini iyileştirir."
+      },
+      {
+        id: "hardcoded-string",
+        name: "Localization Dışı Hardcoded String",
+        sev: ["WARN"],
+        what: "Text(\"...\"), Button(\"...\"), Label(\"...\") gibi SwiftUI çağrılarında insan-okunaklı (boşluklu, 12+ karakter) sabit string'ler arar. Proje L10.X.y enum kullandığı için, dışarıdaki literal'ler atlanmış olabilir.",
+        why: "Hardcoded string'ler çoklu dil desteği olduğunda sadece bir dile yakalı kalır. Azerbaycan projesi gibi TR + AZ + EN kullanan uygulamalarda yanlışlıkla bir dilde takılı kalan UI bug'ları yaratır."
+      },
+      {
+        id: "assets",
+        name: "Eksik Asset Referansları",
+        sev: ["WARN"],
+        what: "Image(\"...\") veya UIImage(named: \"...\") çağrılarında referans verilen asset'in xcassets'te olup olmadığını kontrol eder (SF Symbol heuristic'i ile system icon'lar atlanır).",
+        why: "Eksik asset runtime'da nil image döner — UI'da kırık kutu, boş icon görünür. Compile-time'da yakalanmaz çünkü Swift bunu string olarak tutar. Live öncesi bu kontrol kullanıcı görsel deneyimini korur."
+      }
+    ]
+  },
+  {
+    title: "Build & Repository State",
+    emoji: "⚙️",
+    cls: "",
+    summary: "Build configuration tutarlılığı ve repo durumu — yanlış build ile deploy etmeyi engeller.",
+    rules: [
+      {
+        id: "config",
+        name: "Prod.xcconfig Tutarlılığı",
+        sev: ["ERR", "WARN"],
+        what: "Prod.xcconfig içinde test/uat/dev string'i geçiyor mu, MARKETING_VERSION ve baseUrl gibi temel ayarlar mevcut mu?",
+        why: "xcconfig'de bir typo veya sızıntı olduğunda 'prod' build aslında test backend'e konuşur. App Store'da yayınlanmış banking app'in test sunucusuna istek atması ciddi bir incident'tir."
+      },
+      {
+        id: "git",
+        name: "Git Durumu",
+        sev: ["WARN", "INFO"],
+        what: "Uncommitted değişiklikleri, untracked dosyaları, branch upstream durumunu (ahead/behind) raporlar.",
+        why: "Uncommitted bir değişiklikle build alıp store'a yüklemek 'şu commitle yayınlandı' takibini imkansız kılar. Reproducibility ve audit trail için release build'i daima clean working tree'de yapılmalı."
+      }
+    ]
+  }
+];
+const state = {
+  data: null,
+  project: null,        // /api/project çıktısı
+  selectedTarget: localStorage.getItem("preflight.target") || "",
+  selectedConfig: localStorage.getItem("preflight.config") || "",
+  shownSev: { ERR: true, WARN: true, INFO: false },
+  search: "",
+  group: "section",
+  openSections: new Set(),
+};
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
+
+function showToast(msg, isErr=false) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.toggle("err", isErr);
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 2800);
+}
+
+async function loadProject() {
+  try {
+    const r = await fetch("/api/project");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const proj = await r.json();
+    if (proj.error) throw new Error(proj.error);
+    state.project = proj;
+
+    const projectName = proj.project?.name || "Preflight";
+    document.title = `${projectName} — Preflight`;
+    $("#brand-name").textContent = `${projectName} Preflight`;
+
+    const targets = proj.targets.map(t => t.name);
+    const configs = proj.project.configurations || [];
+    const defaultConfig = proj.project.defaultConfiguration;
+
+    // Target seçimi: localStorage > tek varsa otomatik > default boş
+    if (!state.selectedTarget || !targets.includes(state.selectedTarget)) {
+      state.selectedTarget = targets.length === 1 ? targets[0] : (targets[0] || "");
+    }
+    // Config: localStorage > defaultConfig > ilk
+    if (!state.selectedConfig || !configs.includes(state.selectedConfig)) {
+      state.selectedConfig = defaultConfig && configs.includes(defaultConfig)
+        ? defaultConfig
+        : (configs[0] || "");
+    }
+
+    populateSelectors(targets, configs);
+  } catch (e) {
+    showToast("Proje yapısı okunamadı: " + e.message, true);
+  }
+}
+
+function populateSelectors(targets, configs) {
+  const tSel = $("#target-select");
+  const cSel = $("#config-select");
+  tSel.innerHTML = targets.map(t =>
+    `<option value="${escapeHtml(t)}"${t === state.selectedTarget ? " selected" : ""}>${escapeHtml(t)}</option>`
+  ).join("");
+  cSel.innerHTML = configs.map(c =>
+    `<option value="${escapeHtml(c)}"${c === state.selectedConfig ? " selected" : ""}>${escapeHtml(c)}</option>`
+  ).join("");
+
+  // Sadece çoklu seçenek varsa görünür yap (yer kaplamasın)
+  $("#target-selector").style.display = targets.length > 1 ? "" : "none";
+  $("#config-selector").style.display = configs.length > 1 ? "" : "none";
+}
+
+async function loadData() {
+  try {
+    const r = await fetch("/api/data?_=" + Date.now());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    state.data = await r.json();
+    render();
+  } catch (e) {
+    $("#content").innerHTML = `<div class="empty-state">Veri yüklenemedi: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function rerun() {
+  const btn = $("#rerun");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Çalışıyor…';
+  const cfgLabel = state.selectedConfig
+    ? ` (${state.selectedTarget || "?"}/${state.selectedConfig})`
+    : "";
+  try {
+    const r = await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        target: state.selectedTarget,
+        config: state.selectedConfig,
+      }),
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(txt || ("HTTP " + r.status));
+    }
+    const result = await r.json();
+    showToast(`Tarama tamamlandı${cfgLabel} — ${(result.durationMs / 1000).toFixed(1)}s`);
+    await loadData();
+  } catch (e) {
+    showToast("Re-run hatası: " + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "↻ Re-run";
+  }
+}
+
+function flatFindings() {
+  const out = [];
+  for (const sec of state.data.sections || []) {
+    for (const f of sec.findings || []) {
+      // Orijinal objeye ID yaz — spread sonrası bağlantıyı korumak için.
+      if (!f._id) f._id = "f" + (++findingIdCounter);
+      out.push({ ...f, sectionId: sec.id, sectionTitle: sec.title });
+    }
+  }
+  return out;
+}
+
+function passesFilter(f) {
+  if (!state.shownSev[f.severity]) return false;
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    const hay = [f.file, f.message, f.rule, f.sectionTitle].filter(Boolean).join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function groupFindings(findings) {
+  const groups = new Map();
+  const keyFn = {
+    section: (f) => [f.sectionId, f.sectionTitle],
+    severity: (f) => [f.severity, ({ ERR: "Error", WARN: "Warn", INFO: "Info" })[f.severity]],
+    file: (f) => [f.file || "(genel)", f.file || "(genel)"],
+  }[state.group];
+
+  for (const f of findings) {
+    const [id, title] = keyFn(f);
+    if (!groups.has(id)) groups.set(id, { id, title, findings: [] });
+    groups.get(id).findings.push(f);
+  }
+  return Array.from(groups.values());
+}
+
+function severityCounts(findings) {
+  const c = { ERR: 0, WARN: 0, INFO: 0 };
+  for (const f of findings) c[f.severity] = (c[f.severity] || 0) + 1;
+  return c;
+}
+
+function renderSection(g, idx) {
+  const sevCnt = severityCounts(g.findings);
+  const open = state.openSections.has(g.id) || (idx === 0 && state.openSections.size === 0);
+  if (open) state.openSections.add(g.id);
+
+  const findingsHtml = g.findings.map((f) => {
+    const loc = f.file
+      ? `<span class="file">${escapeHtml(f.file)}</span>${f.line ? `<span class="line">:${f.line}</span>` : ""}`
+      : "";
+    const titleAttr = f.file
+      ? `title="Xcode'da aç: ${escapeHtml(f.file)}${f.line ? ":" + f.line : ""}"`
+      : "";
+    return `
+      <div class="finding" data-id="${f._id}" data-action="open" ${titleAttr}>
+        <span class="sev ${f.severity}">${f.severity}</span>
+        <div class="msg">
+          <span class="rule mono">${escapeHtml(f.rule || "")}</span>
+          <span class="mono">${escapeHtml(f.message || "")}</span>
+        </div>
+        <div class="loc mono">${loc}</div>
+      </div>
+    `;
+  }).join("");
+
+  const badges = SEVERITIES
+    .filter(s => sevCnt[s])
+    .map(s => `<span class="badge ${s.toLowerCase()}">${sevCnt[s]} ${s}</span>`)
+    .join("");
+
+  return `
+    <section class="section ${open ? "open" : ""}" data-group-id="${escapeHtml(g.id)}">
+      <div class="section-head">
+        <span class="chev">▶</span>
+        <span class="section-title">${escapeHtml(g.title)}</span>
+        <div class="badges">${badges}</div>
+      </div>
+      <div class="findings">${findingsHtml}</div>
+    </section>
+  `;
+}
+
+function render() {
+  const d = state.data;
+  if (!d) return;
+
+  const verdictEl = $("#verdict");
+  verdictEl.className = "verdict " + d.meta.verdict;
+  verdictEl.textContent = ({
+    pass: "✓ Live'a çıkılabilir",
+    warn: "⚠ Uyarılarla temiz",
+    fail: "✗ Live'a çıkılmamalı",
+  })[d.meta.verdict] || d.meta.verdict;
+
+  $("#cnt-err").textContent = d.meta.totals.error;
+  $("#cnt-warn").textContent = d.meta.totals.warn;
+  $("#cnt-info").textContent = d.meta.totals.info;
+  $("#meta-src").textContent = "📁 " + d.meta.src;
+  $("#meta-time").textContent = "🕐 " + new Date(d.meta.generatedAt).toLocaleString("tr-TR");
+  $("#meta-strict").textContent = d.meta.strict ? "⚙ strict" : "";
+
+  // Target / config / aktif macros badge
+  const target = d.meta.target;
+  const config = d.meta.config;
+  const macros = d.meta.activeMacros || [];
+  const targetBox = $("#meta-target");
+  if (config) {
+    const cfgClass = config.toLowerCase();
+    const macroChips = macros.map(m =>
+      `<span class="macro-chip">${escapeHtml(m)}</span>`
+    ).join("");
+    targetBox.innerHTML =
+      `🎯 ${escapeHtml(target || "?")} ` +
+      `<span class="config-badge ${cfgClass}">${escapeHtml(config)}</span>` +
+      macroChips;
+  } else {
+    targetBox.innerHTML = "";
+  }
+
+  const filtered = flatFindings().filter(passesFilter);
+  if (filtered.length === 0) {
+    $("#content").innerHTML = `<div class="empty-state">${
+      state.search || !Object.values(state.shownSev).every(v => v)
+        ? "Filtreye uyan bulgu yok."
+        : "🎉 Hiç bulgu yok — temiz."
+    }</div>`;
+    return;
+  }
+  const groups = groupFindings(filtered);
+  $("#content").innerHTML = groups.map(renderSection).join("");
+}
+
+function findFinding(id) {
+  for (const f of flatFindings()) if (f._id === id) return f;
+  return null;
+}
+
+async function openInXcode(finding, rowEl) {
+  if (!finding.file) return;
+  rowEl?.classList.add("opening");
+  try {
+    const r = await fetch("/api/open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file: finding.file, line: finding.line }),
+    });
+    const j = await r.json();
+    if (!j.ok) showToast("Xcode açılamadı: " + (j.error || "?"), true);
+  } catch (e) {
+    showToast("Xcode açılamadı: " + e.message, true);
+  } finally {
+    setTimeout(() => rowEl?.classList.remove("opening"), 400);
+  }
+}
+
+async function shutdownServer() {
+  if (!confirm("Sunucu kapatılsın mı? Dashboard çalışmayacak.")) return;
+  try {
+    await fetch("/api/shutdown", { method: "POST" });
+  } catch {}
+  document.body.innerHTML = `<div style="padding:60px;text-align:center;font:14px system-ui;color:#888">
+    Sunucu kapatıldı. Bu sekmeyi kapatabilirsin.</div>`;
+}
+
+document.addEventListener("click", (e) => {
+  // Finding satırı → Xcode'da aç
+  const findingRow = e.target.closest('.finding[data-action="open"]');
+  if (findingRow) {
+    const id = findingRow.dataset.id;
+    const f = findFinding(id);
+    if (f) openInXcode(f, findingRow);
+    return;
+  }
+
+  // Section başlığı → toggle
+  const head = e.target.closest(".section-head");
+  if (head) {
+    const sec = head.parentElement;
+    const id = sec.dataset.groupId;
+    if (sec.classList.toggle("open")) state.openSections.add(id);
+    else state.openSections.delete(id);
+  }
+});
+
+$("#quit").addEventListener("click", shutdownServer);
+
+function renderAboutModal() {
+  try {
+    if (!Array.isArray(RULE_CATALOG) || RULE_CATALOG.length === 0) {
+      $("#about-body").innerHTML =
+        '<div class="empty-state">Kural kataloğu yüklenemedi (RULE_CATALOG boş).</div>';
+      return;
+    }
+    const html = RULE_CATALOG.map(cat => {
+      const rules = (cat.rules || []).map(r => {
+        const sevs = (r.sev || []).map(s => `<span class="sev ${s}">${s}</span>`).join("");
+        return `
+          <div class="rule-card">
+            <h3>
+              <span>${escapeHtml(r.name)}</span>
+              <span class="id">${escapeHtml(r.id)}</span>
+              <span class="sevs">${sevs}</span>
+            </h3>
+            <p class="what"><span class="label">Ne arar:</span>${escapeHtml(r.what)}</p>
+            <p class="why"><span class="label">Neden önemli:</span>${escapeHtml(r.why)}</p>
+          </div>
+        `;
+      }).join("");
+      return `
+        <div class="cat ${cat.cls || ""}">
+          <div class="cat-title">
+            <span class="cat-emoji">${cat.emoji || ""}</span>
+            <span>${escapeHtml(cat.title)}</span>
+          </div>
+          <p style="color:var(--muted);font-size:13px;margin:0 0 12px 0">${escapeHtml(cat.summary || "")}</p>
+          ${rules}
+        </div>
+      `;
+    }).join("");
+    $("#about-body").innerHTML = html;
+  } catch (e) {
+    console.error("renderAboutModal hatası:", e);
+    $("#about-body").innerHTML =
+      `<div class="empty-state">Render hatası: ${escapeHtml(e.message)}<br><small>Konsol için F12'ye bas.</small></div>`;
+  }
+}
+
+function showAbout() {
+  // Her açılışta yeniden render et — stale state kalmasın.
+  renderAboutModal();
+  $("#about-modal").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function hideAbout() {
+  $("#about-modal").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
+$("#about-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  showAbout();
+});
+$("#about-modal").addEventListener("click", (e) => {
+  if (e.target.matches("[data-close]") || e.target === $("#about-modal")) {
+    hideAbout();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("#about-modal").classList.contains("show")) {
+    hideAbout();
+  }
+});
+
+$("#rerun").addEventListener("click", rerun);
+
+$("#search").addEventListener("input", (e) => {
+  state.search = e.target.value.trim();
+  render();
+});
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+    e.preventDefault();
+    $("#search").focus();
+    $("#search").select();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+    e.preventDefault();
+    rerun();
+  }
+});
+
+$$(".toggle").forEach((t) => {
+  const sev = t.dataset.sev;
+  const cb = t.querySelector("input");
+  cb.checked = state.shownSev[sev];
+  t.classList.toggle("off", !cb.checked);
+  t.addEventListener("click", () => {
+    cb.checked = !cb.checked;
+    state.shownSev[sev] = cb.checked;
+    t.classList.toggle("off", !cb.checked);
+    render();
+  });
+});
+
+$$(".group-tabs button").forEach((b) => {
+  b.addEventListener("click", () => {
+    $$(".group-tabs button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    state.group = b.dataset.group;
+    state.openSections.clear();
+    render();
+  });
+});
+
+$("#expand-all").addEventListener("click", () => {
+  $$(".section").forEach((s) => {
+    s.classList.add("open");
+    state.openSections.add(s.dataset.groupId);
+  });
+});
+$("#collapse-all").addEventListener("click", () => {
+  $$(".section").forEach((s) => s.classList.remove("open"));
+  state.openSections.clear();
+});
+
+// Target / config dropdown handlers
+$("#target-select").addEventListener("change", (e) => {
+  state.selectedTarget = e.target.value;
+  localStorage.setItem("preflight.target", state.selectedTarget);
+  showToast(`Target: ${state.selectedTarget} — Re-run ile uygula`);
+});
+$("#config-select").addEventListener("change", (e) => {
+  state.selectedConfig = e.target.value;
+  localStorage.setItem("preflight.config", state.selectedConfig);
+  showToast(`Config: ${state.selectedConfig} — Re-run ile uygula`);
+});
+
+(async () => {
+  await loadProject();
+  await loadData();
+})();
+</script>
+</body>
+</html>
