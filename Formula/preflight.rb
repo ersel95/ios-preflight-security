@@ -2,10 +2,7 @@ class Preflight < Formula
   desc "iOS release-readiness preflight check (22 static analysis rules)"
   homepage "https://github.com/ersel95/ios-preflight-security"
   url "https://github.com/ersel95/ios-preflight-security/archive/refs/tags/v0.1.0.tar.gz"
-  # `brew install ./Formula/preflight.rb` ile lokal denemek için sha256'yı boş
-  # bırakabilirsin; release tarball'ı için aşağıdaki komutla doldur:
-  #   curl -sL https://github.com/ersel95/ios-preflight-security/archive/refs/tags/v0.1.0.tar.gz | shasum -a 256
-  sha256 "REPLACE_AFTER_FIRST_RELEASE"
+  sha256 "079132f15b89aac3a9c96cbf58b94d4d0d008c6a363ca8eebdbbe3cd3d8c2633"
   license "MIT"
   version "0.1.0"
 
